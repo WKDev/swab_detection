@@ -162,6 +162,12 @@ while True:
     
 
     inversed = cv2.bitwise_not(bin_image)
+
+    # apply gaussian blur
+    inversed = cv2.GaussianBlur(inversed, (5, 5), 100)
+
+    processed_imgs.update({"blur": inversed})
+
     # Start the HoughCircles operation in a separate thread
     hough_thread = threading.Thread(target=hough_circles_operation, 
                                     args=(inversed, min_dist, param1, param2, min_radius, max_radius))
