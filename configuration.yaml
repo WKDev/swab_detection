@@ -1,0 +1,17 @@
+block_size: 19
+blur: 4
+brightness: 54
+c: 2
+contrast: 9
+gamma: 85
+img_idx: 8
+iterations: 6
+kernel_size: 5
+max_radius: 42
+max_value: 204
+min_dist: 64
+min_radius: 24
+param1: 11
+param2: 14
+threshold_max: 178
+threshold_min: 244
