@@ -17,7 +17,7 @@ DETECTION_TIMEOUT = 0.5
 # 3. 원의 중심점이 까만 영역에 있으면 제거하기 - 윤
 # 4. 머신러닝 gridsearch 만들기 - 손
 
-# presentation - 손찬혁
+# presentation 
 # 1. 반전 했더니 잘 된다.
 # 2. 허프 변환은 진한 색을 먼저 잡는다. 
 # 3. 이진화는 보조용이더라.(오탐 제거용)
@@ -73,6 +73,14 @@ config = {
     "kernel_size": [[1, 10], 5, 5],
     "iterations": [[1, 10], 1, 1],
     "blur": [[1, 100], 1, 1],
+    "after_blur": [[1, 100], 1, 1],
+    "canny_min": [[0, 255], 0, 0],
+    "canny_max": [[0, 255], 255, 255],
+    "at_dilate": [[1, 100], 1, 1],
+    "at_th_min": [[0, 255], 0, 0],
+    "at_th_max": [[0, 255], 255, 255],
+    "bin_blur": [[1, 100], 1, 1],
+
 }
 
 saved_config = load_config()
@@ -127,6 +135,15 @@ while True:
     iterations = config["iterations"][2]
 
     blur = config["blur"][2]
+    after_blur = config["after_blur"][2]
+
+    canny_min = config["canny_min"][2]
+    canny_max = config["canny_max"][2]
+
+    at_dilate = config["at_dilate"][2]
+    at_th_min = config["at_th_min"][2]
+    at_th_max = config["at_th_max"][2]
+
 
 
     # Load image
@@ -155,43 +172,64 @@ while True:
 
     processed_imgs.update({"adjusted": adjusted})
 
+
     try:
         adaptive_thresh_image = cv2.adaptiveThreshold(adjusted, max_value, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, block_size, c)
         thresh_bin_image = cv2.threshold(adjusted, threshold_min, threshold_max, cv2.THRESH_BINARY)[1]
         thresh_otsu_image = cv2.threshold(adjusted, threshold_min, threshold_max, cv2.THRESH_BINARY_INV)[1]
 
         # processed_imgs.update({"createCLAHE": clahed_gray})
-        processed_imgs.update({"adaptiveThreshold": adaptive_thresh_image})
-        processed_imgs.update({"thresh_otsu_image": thresh_otsu_image})
+        # processed_imgs.update({"thresh_otsu_image": thresh_otsu_image})
 
-        cv2.imshow("adaptiveThreshold", cv2.resize(adaptive_thresh_image, (0, 0), fx=0.5, fy=0.5))
-        kernel = np.ones((3, 3), np.uint8)
+        # cv2.imshow("adaptiveThreshold", cv2.resize(adaptive_thresh_image, (0, 0), fx=0.5, fy=0.5))
+        # kernel = np.ones((3, 3), np.uint8)
 
-        adaptive_thresh_image = cv2.erode(thresh_otsu_image, kernel, iterations=iterations)
+        # adaptive_thresh_image = cv2.erode(thresh_otsu_image, kernel, iterations=iterations)
 
-        kernel = np.ones((3, 3), np.uint8)
+        # kernel = np.ones((3, 3), np.uint8)
 
-        opening = cv2.morphologyEx(adaptive_thresh_image, cv2.MORPH_OPEN, kernel)
-        closing = cv2.morphologyEx(adaptive_thresh_image, cv2.MORPH_CLOSE, kernel)
+        # opening = cv2.morphologyEx(adaptive_thresh_image, cv2.MORPH_OPEN, kernel)
+        # closing = cv2.morphologyEx(adaptive_thresh_image, cv2.MORPH_CLOSE, kernel)
 
-        adaptive_thresh_image = cv2.GaussianBlur(adaptive_thresh_image, (ksize,ksize), 0)
+        canny = cv2.Canny(adjusted, canny_min, canny_max)
+        processed_imgs.update({"canny": canny})
+
+        after_blur_k_size= 2 * blur + 1
+        adaptive_thresh_image = cv2.GaussianBlur(adaptive_thresh_image, (after_blur,after_blur), 0)
+
+        adaptive_thresh_image = cv2.dilate(adaptive_thresh_image, None, iterations=2)
+
+        adaptive_thresh_image = cv2.erode(adaptive_thresh_image, None, iterations=at_dilate)
+
+        at_morp_thesh_image = cv2.threshold(adaptive_thresh_image, at_th_min, at_th_max, cv2.THRESH_BINARY)[1]
+
+        bin_blur_k_size = 2 * blur + 1
+
+        res = cv2.GaussianBlur(at_morp_thesh_image, (bin_blur_k_size,bin_blur_k_size), 0)
 
 
-        border = cv2.dilate(adaptive_thresh_image, None, iterations=iterations) - cv2.erode(adaptive_thresh_image, None, iterations=iterations)
 
-        dt = cv2.distanceTransform(adaptive_thresh_image, cv2.DIST_L2, 3)
+        processed_imgs.update({"adaptiveThreshold+blur": res})
 
-        dt= ((dt - dt.min()) / (dt.max() - dt.min()) * 255).astype(np.uint8)
 
-        ret, dt = cv2.threshold(dt, 180, 255, cv2.THRESH_BINARY)
+
+
+
+        # border = cv2.dilate(adaptive_thresh_image, None, iterations=iterations) - cv2.erode(adaptive_thresh_image, None, iterations=iterations)
+
+        # dt = cv2.distanceTransform(adaptive_thresh_image, cv2.DIST_L2, 3)
+
+        # dt= ((dt - dt.min()) / (dt.max() - dt.min()) * 255).astype(np.uint8)
+
+        # ret, dt = cv2.threshold(dt, 180, 255, cv2.THRESH_BINARY)
         
 
-        processed_imgs.update({"distance_transform": dt})
+        # processed_imgs.update({"distance_transform": dt})
 
-        processed_imgs.update({"border": border})
-        cv2.imshow("border", cv2.resize(border, (0, 0), fx=0.5, fy=0.5))
+        # processed_imgs.update({"border": border})
+        # cv2.imshow("border", cv2.resize(border, (0, 0), fx=0.5, fy=0.5))
 
-        bin_image = adjusted
+        bin_image = at_morp_thesh_image
 
         # morphological operations
         # kernel = np.ones((kernel_size, kernel_size), np.uint8)
@@ -201,10 +239,10 @@ while True:
         kernel = np.ones((3, 3), np.uint8)
 
         # 1. 침식 연산 (Erosion)
-        erosion = cv2.erode(thresh_otsu_image, kernel, iterations=1)
+        erosion = cv2.erode(at_morp_thesh_image, kernel, iterations=1)
 
         # 2. 팽창 연산 (Dilation)
-        dilation = cv2.dilate(erosion, kernel, iterations=iterations)
+        dilation = cv2.dilate(at_morp_thesh_image, kernel, iterations=iterations)
 
         # # 3. 열림 연산 (Opening: 침식 후 팽창)
         # opening = cv2.morphologyEx(thresh_otsu_image, cv2.MORPH_OPEN, kernel)
@@ -214,6 +252,25 @@ while True:
         # processed_imgs.update({"dilation": dilation})
 
         # processed_imgs.update({"morphology": bin_image})
+
+        contours, _ = cv2.findContours(at_morp_thesh_image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        # 각 윤곽선을 확인
+        for contour in contours:
+            # 윤곽선 근사화로 모양 확인
+            perimeter = cv2.arcLength(contour, True)
+            approx = cv2.approxPolyDP(contour, 0.04 * perimeter, True)
+
+            # 원 모양에 가까운지 판단 (다각형의 꼭짓점이 많을수록 원에 가까움)
+            if len(approx) > 8:  # 꼭짓점이 8개 이상이면 원으로 간주
+                # 원형의 윤곽선을 그리기
+                cv2.drawContours(at_morp_thesh_image, [approx], 0, (0, 255, 0), 3)
+
+        # '닫기(closing)' 연산을 통해 열린 원 메우기
+        kernel = np.ones((5,5), np.uint8)
+        closed = cv2.morphologyEx(at_morp_thesh_image, cv2.MORPH_CLOSE, kernel)
+
+        processed_imgs.update({"closed": closed})
 
     except Exception as e:
         print(f"Error: {e}")
@@ -226,13 +283,8 @@ while True:
 
     inversed = cv2.bitwise_not(adjusted)
 
-    threshold = cv2.threshold(inversed, threshold_min, 255, cv2.THRESH_BINARY_INV)[1]
-    processed_imgs.update({"threshold": threshold})
-
-
-
-    detect_src = inversed
-
+    detect_src = at_morp_thesh_image
+    circles = None
     # Start the HoughCircles operation in a separate thread
     hough_thread = threading.Thread(target=hough_circles_operation, 
                                     args=(detect_src, min_dist, param1, param2, min_radius, max_radius))
@@ -243,22 +295,39 @@ while True:
 
     if hough_thread.is_alive():
         print(f"HoughCircles operation timed out after {DETECTION_TIMEOUT} seconds")
-        cv2.putText(detect_src, f"TIMEOUT: took more than{DETECTION_TIMEOUT}s", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+        cv2.putText(detect_src, f"TIMEOUT: took more than{DETECTION_TIMEOUT}s", (100, 300), cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 0, 255), 5)
 
         hough_result = None
     else:
         circles = hough_result
 
-    detect_src = cv2.cvtColor(detect_src, cv2.COLOR_GRAY2BGR)
+
+    overlay_src = cv2.cvtColor(detect_src, cv2.COLOR_GRAY2BGR)
+
+    valid_cnt = 0
 
     if circles is not None:
         circles = np.uint16(np.around(circles))
         for i in circles[0]:
-            cv2.circle(detect_src, (int(i[0]), int(i[1])), int(i[2]), (0, 0, 255), 2)
-    else:
-        cv2.putText(detect_src, "No circles detected", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 5)
+            x_center, y_center = int(i[0]), int(i[1])
 
-    processed_imgs.update({"hough_circles": detect_src})
+            if detect_src[y_center, x_center] == 255: # if the center of the circle is black,
+                cv2.circle(overlay_src, (int(i[0]), int(i[1])), int(i[2]), (0, 255, 0), 2)
+                valid_cnt += 1
+            else:
+                cv2.circle(overlay_src, (int(i[0]), int(i[1])), int(i[2]), (0, 0, 255), 2)
+            
+
+
+        det_cnt = valid_cnt
+        ref_cnt = estimate_cnt(imgs[img_idx], det_cnt)
+
+
+        cv2.putText(overlay_src, f"{det_cnt}/{ref_cnt}, Acc: {(det_cnt/ref_cnt)*100:.2f}", (100, 200), cv2.FONT_HERSHEY_SIMPLEX, 5, (255, 0, 255), 3)
+    else:
+        cv2.putText(overlay_src, "No circles detected", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 5)
+
+    processed_imgs.update({"hough_circles": overlay_src})
 
     # black = np.zeros_like(colored)
     # colored = cv2.hconcat([colored, black,black,black])
@@ -279,15 +348,12 @@ while True:
 
     stacked = cv2.hconcat(stacked)
 
-    # pf.show_perf()
-
-    cv2.imshow("image", stacked)
-    cv2.imshow("ret", cv2.resize(detect_src, (0, 0), fx=0.5, fy=0.5))
-
-    if circles is not None:
-        estimate_cnt(imgs[img_idx], len(circles[0]))
+    # save img
+    cv2.imwrite("output.jpg", stacked)
 
 
+
+    cv2.imshow("image", cv2.resize(stacked, (0, 0), fx=0.5, fy=0.5))
 
     if cv2.waitKey(200) & 0xFF == ord('q') :
         break

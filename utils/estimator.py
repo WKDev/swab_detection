@@ -10,5 +10,8 @@ def get_ref_cnt(src):
     return ref_
 
 def estimate_cnt(src, detection_cnt):
+    print(f"src: {src}")
     ref_cnt = get_ref_cnt(src)
     print(f"det: {detection_cnt}, ref: {ref_cnt}, accuracy: {detection_cnt/ref_cnt*100:.2f}%")
+
+    return ref_cnt
