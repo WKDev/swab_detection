@@ -1,0 +1,4 @@
+threshold: 
+  min: 10
+  max: 255
+  value: 100

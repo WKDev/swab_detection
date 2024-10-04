@@ -31,6 +31,13 @@ def Text(text):
         return wrapper
     return decorator
 
+
+def odd_maker(num):
+    if num % 2 == 0:
+        return num + 1
+    else:
+        return num
+
 class Perf:
     def __init__(self):
         self.start_time = time.time()

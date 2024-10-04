@@ -7,8 +7,6 @@ gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
 cv2.namedWindow('image')
 
-
-
 cv2.createTrackbar('Threshold Min', 'image', 0, 255, lambda x: None)
 cv2.createTrackbar('Threshold Max', 'image', 0, 255, lambda x: None)
 cv2.setTrackbarPos('Threshold Min', 'image', 180)
@@ -17,7 +15,6 @@ cv2.setTrackbarPos('Threshold Max', 'image', 255)
 # trackbar for gaussian blur
 cv2.createTrackbar('ThresholdBlur', 'image', 0, 10, lambda x: None)
 cv2.setTrackbarPos('ThresholdBlur', 'image', 1)
-
 while True:
 
     thresh_min = cv2.getTrackbarPos('Threshold Min', 'image')

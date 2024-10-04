@@ -1,3 +1,4 @@
+import traceback
 import cv2
 import numpy as np
 import os, time, sys, glob
@@ -5,7 +6,7 @@ from datetime import datetime
 import threading
 
 from utils.estimator import estimate_cnt
-from utils.misc import Perf,Text
+from utils.misc import Perf,Text, odd_maker
 
 import yaml
 
@@ -42,9 +43,7 @@ def update_value(value, config_key):
     save_config()
 
 
-def add_trackbar(trackbar_name, window, rng, def_val, config_key):
-    cv2.createTrackbar(trackbar_name, window, rng[0], rng[1], lambda x: update_value(x, config_key))
-    cv2.setTrackbarPos(trackbar_name, window, def_val)
+
 
 
 # Load images
@@ -130,6 +129,9 @@ while True:
     max_value = config["max_value"][2]
     block_size = config["block_size"][2]
     c = config["c"][2]
+
+    block_size = odd_maker(block_size)
+    c = odd_maker(c)
     
     kernel_size = config["kernel_size"][2]
     iterations = config["iterations"][2]
@@ -144,8 +146,6 @@ while True:
     at_th_min = config["at_th_min"][2]
     at_th_max = config["at_th_max"][2]
 
-
-
     # Load image
     src = cv2.imread(imgs[img_idx], cv2.IMREAD_COLOR)
     src = cv2.cvtColor(src, cv2.COLOR_BGR2GRAY)
@@ -153,12 +153,6 @@ while True:
     ksize = 2 * blur + 1
         # apply gaussian blur
     src = cv2.GaussianBlur(src, (ksize,ksize), 0)
-
-    # add src to processed_imgs dictionary 
-    # ex) processed_imgs.update({(name of variable src)): src})
-    # processed_imgs.update({f"src": src})
-
-
 
     # Histogram equalization
     clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
@@ -174,6 +168,7 @@ while True:
 
 
     try:
+        
         adaptive_thresh_image = cv2.adaptiveThreshold(adjusted, max_value, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, block_size, c)
         thresh_bin_image = cv2.threshold(adjusted, threshold_min, threshold_max, cv2.THRESH_BINARY)[1]
         thresh_otsu_image = cv2.threshold(adjusted, threshold_min, threshold_max, cv2.THRESH_BINARY_INV)[1]
@@ -194,7 +189,9 @@ while True:
         canny = cv2.Canny(adjusted, canny_min, canny_max)
         processed_imgs.update({"canny": canny})
 
-        after_blur_k_size= 2 * blur + 1
+        after_blur = odd_maker(after_blur)
+
+
         adaptive_thresh_image = cv2.GaussianBlur(adaptive_thresh_image, (after_blur,after_blur), 0)
 
         adaptive_thresh_image = cv2.dilate(adaptive_thresh_image, None, iterations=2)
@@ -203,9 +200,9 @@ while True:
 
         at_morp_thesh_image = cv2.threshold(adaptive_thresh_image, at_th_min, at_th_max, cv2.THRESH_BINARY)[1]
 
-        bin_blur_k_size = 2 * blur + 1
+        bin_blur = odd_maker(blur)
 
-        res = cv2.GaussianBlur(at_morp_thesh_image, (bin_blur_k_size,bin_blur_k_size), 0)
+        res = cv2.GaussianBlur(at_morp_thesh_image, (bin_blur,bin_blur), 0)
 
 
 
@@ -311,11 +308,17 @@ while True:
         for i in circles[0]:
             x_center, y_center = int(i[0]), int(i[1])
 
-            if detect_src[y_center, x_center] == 255: # if the center of the circle is black,
-                cv2.circle(overlay_src, (int(i[0]), int(i[1])), int(i[2]), (0, 255, 0), 2)
-                valid_cnt += 1
-            else:
-                cv2.circle(overlay_src, (int(i[0]), int(i[1])), int(i[2]), (0, 0, 255), 2)
+            try:
+
+                if detect_src[y_center, x_center] == 255: # if the center of the circle is black,
+                    
+                    cv2.circle(overlay_src, (int(i[0]), int(i[1])), int(i[2]), (0, 255, 0), 5)
+                    valid_cnt += 1
+                else:
+                    cv2.circle(overlay_src, (int(i[0]), int(i[1])), int(i[2]), (0, 0, 255), 2)
+
+            except Exception as e:
+                print(traceback.format_exc())
             
 
 
@@ -323,7 +326,8 @@ while True:
         ref_cnt = estimate_cnt(imgs[img_idx], det_cnt)
 
 
-        cv2.putText(overlay_src, f"{det_cnt}/{ref_cnt}, Acc: {(det_cnt/ref_cnt)*100:.2f}", (100, 200), cv2.FONT_HERSHEY_SIMPLEX, 5, (255, 0, 255), 3)
+        cv2.putText(overlay_src, f"{det_cnt}/{ref_cnt}", (50, 100), cv2.FONT_HERSHEY_SIMPLEX, 3, (255, 0, 255), 5)
+        cv2.putText(overlay_src, f"Acc: {(det_cnt/ref_cnt)*100:.2f}", (50, 200), cv2.FONT_HERSHEY_SIMPLEX, 3, (255, 0, 255), 5)
     else:
         cv2.putText(overlay_src, "No circles detected", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 5)
 
@@ -343,7 +347,7 @@ while True:
         if len(v.shape) == 2:
             processed_imgs[k] = cv2.cvtColor(v, cv2.COLOR_GRAY2BGR)
 
-        processed_imgs[k] = cv2.putText(processed_imgs[k], k, (50, processed_imgs[k].shape[1]-300), cv2.FONT_HERSHEY_SIMPLEX, 5, (0, 255, 0), 10)
+        processed_imgs[k] = cv2.putText(processed_imgs[k], k, (50, processed_imgs[k].shape[1]-100), cv2.FONT_HERSHEY_SIMPLEX, 3, (0, 255, 0), 10)
         stacked.append(processed_imgs[k])
 
     stacked = cv2.hconcat(stacked)
