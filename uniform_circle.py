@@ -188,12 +188,13 @@ def detect_ellipses(img, params, **kwargs):
     return cropped
 
 class SwabDetector:
-    def __init__(self,path='images/*.jpg'):
+    def __init__(self,path='images/*.jpg',window_name='image', config_file='config.yaml', show_result=True):
         self.imgs=glob.glob(path)
         self.processed_imgs = {}
-        self.window_name = 'image'
-        self.config_file = 'config.yaml'
+        self.window_name = window_name
+        self.config_file = config_file
         self.config = {}
+        self.show_result = True
 
         self.current_img = 0
     
@@ -205,7 +206,18 @@ class SwabDetector:
 
         self.init_trackbars()
 
+    def add_pipeline(self, pipeline):
+        '''
+        이미지 처리를 수행할 파이프라인 함수 추가합니다.
+        반드시 foo_bar(img, params, **kwargs) 형태여야 하고, img를 반환해야 합니다.
+        params는 설정값을 전달하며, kwargs는 이미지 처리에 필요한 추가적인 정보를 전달합니다.
+        '''
+        self.pipelines.append(pipeline)
+
     def load_values(self):
+        '''
+        Load values from config file
+        '''
         with open(self.config_file, 'r') as f:
             self.config = yaml.safe_load(f) 
 
@@ -213,6 +225,9 @@ class SwabDetector:
             self.config = {}
 
     def init_trackbars(self):
+        '''
+        Initialize trackbars
+        '''
         self.add_trackbar('img_idx', (0, len(self.imgs)-1), 0)
 
         for k, v in self.config.items():
@@ -233,25 +248,34 @@ class SwabDetector:
         with open(self.config_file, 'w') as f:
             yaml.dump(self.config, f)
 
-    
     def run(self):
+        '''
+        Run the pipeline
+        '''
         while True:
+
+            # Load values from trackbars
             for k,v in self.config.items():
                 values = v['value']
                 for k2,v2 in values.items():
                     self.config[k]['value'][k2] = cv2.getTrackbarPos(f"{k}.{k2}", self.window_name)
 
-                
+            # Load image
             img_path = self.imgs[self.current_img]
             img = cv2.imread(img_path)
             org_img = img.copy()
 
-
+            # Run the pipeline
+            # 여기가 중요한 부분, __main__에서 pipeline을 추가하면 여기서 실행됨
             for p in self.pipelines:
                 img = p(img, self.config, org_img=org_img)
 
-            cv2.imshow(self.window_name, img)
+            
+            if self.show_result:
+                cv2.imshow(self.window_name, img)
     
+
+            # Handle keyboard input
             current_input = cv2.waitKey(1) & 0xFF
             if current_input == ord('q'):
                 break
@@ -267,15 +291,25 @@ class SwabDetector:
             elif self.current_img >= len(self.imgs):
                 self.current_img = 0
 
-
 if __name__ == '__main__':
-    sd = SwabDetector()
-    sd.pipelines.append(bgr_to_gray)
+    
+    # 이미지 로드 및 설정값 불러오기
+    options= {
+        'path':'images/*.jpg', # 이미지 경로
+        'window_name':'image', # 윈도우 이름
+        'config_file':'config.yaml', # 설정값 파일
+        'show_result':True # 결과 보여줄지 여부
+    }
+    sd = SwabDetector(**options)
 
-    sd.pipelines.append(def_preprocess)
-    sd.pipelines.append(gaussian_blur)
+    sd.add_pipeline(bgr_to_gray) # 원본 이미지를 흑백으로 변환
 
-    sd.pipelines.append(threshold)
-    sd.pipelines.append(detect_ellipses)
+    sd.add_pipeline(def_preprocess) # 이미지 전처리
+    sd.add_pipeline(gaussian_blur) # 가우시안 블러
+
+    sd.add_pipeline(threshold) # 이진화
+    sd.add_pipeline(detect_ellipses) # 타원 검출 및 warping
+
+    # trackbar 및 결과 이미지 출력을 위한 루프 
     sd.run()
 
