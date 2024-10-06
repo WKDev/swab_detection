@@ -33,7 +33,7 @@ def adjust_image(img, shadows=0, highlights=0, brilliance=0, exposure=0,
     img_array *= (1 + brilliance/100)
     
     # Adjust exposure
-    img_array *= 2 ** exposure
+    # img_array *= 2 ** exposure
     
     # Clip values to valid range
     img_array = np.clip(img_array, 0, 255).astype(np.uint8)

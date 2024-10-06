@@ -53,3 +53,7 @@ class Perf:
         print(f"[{self.job_name}] Elapsed: {(self.end - self.start_time)*1000:.3f}ms")
 
         self.start = time.time()
+
+
+def scaled_imshow(img, window_name='image', scale=0.5):
+    cv2.imshow(window_name, cv2.resize(img, (0, 0), fx=scale, fy=scale))

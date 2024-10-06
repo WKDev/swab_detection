@@ -1,10 +1,191 @@
 import glob
 import cv2
+import numpy as np
 import yaml
 
-def threshold(img, params):
-    return cv2.threshold(img, params['threshold'], 255, cv2.THRESH_BINARY)[1]
+from utils.adjust_image import adjust_image
+from utils.misc import odd_maker, scaled_imshow
 
+def bgr_to_gray(img, params,**kwargs):
+    return cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+def threshold(img, params,**kwargs):
+    return cv2.threshold(img, params['threshold']['value']['min'], params['threshold']['value']['max'], cv2.THRESH_BINARY)[1]
+
+def thresh_otsu(img, params,**kwargs):
+    return cv2.threshold(img, 0, 255, cv2.THRESH_BINARY+cv2.THRESH_OTSU)[1]
+
+def gaussian_blur(img, params,**kwargs):
+    ksize = odd_maker(params['gaussian_blur']['value']['ksize'])
+    return cv2.GaussianBlur(img, (ksize,ksize), 0)
+
+def def_preprocess(img, params, **kwargs):
+    img = adjust_image(img, shadows=params['_adj']['value']['shadows'] -100,
+                          highlights=params['_adj']['value']['highlights'] -100,
+                          brilliance=params['_adj']['value']['brilliance'] -100,
+                          exposure=params['_adj']['value']['exposure'] -100,
+                          contrast=params['_adj']['value']['contrast'] -100,
+                          brightness=params['_adj']['value']['brightness'] -100,
+                          black_point=params['_adj']['value']['black_point'] -100,
+                          sharpness=params['_adj']['value']['sharpness'] -100,
+                          noise_reduction=params['_adj']['value']['noise_reduction'] -100)
+    scaled_imshow(img,"preprocessed")
+    return img
+
+def find_contours(img, params):
+    # 컨투어 찾기 ---①
+    contours, hierachy = cv2.findContours(img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    contour = contours[0]
+    # 전체 둘레의 0.05로 오차 범위 지정 ---②
+    epsilon = 0.05 * cv2.arcLength(contour, True)
+
+    # 근사 컨투어 계산 ---③
+    approx = cv2.approxPolyDP(contour, epsilon, True)
+
+    # 각각 컨투어 선 그리기 ---④
+
+    colored_img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+    ret = cv2.drawContours(colored_img, [contour], -1, (0,255,0), 3)
+    ret = cv2.drawContours(colored_img, [approx], -1, (0,255,0), 3)
+
+    return ret
+
+def convex_hull(img, params):
+    contours, hierarchy = cv2.findContours(img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    #        · mode : 컨투어를 찾는 방법
+
+                    # cv2.RETR_EXTERNAL: 컨투어 라인 중 가장 바깥쪽의 라인만 찾음
+
+                    # cv2.RETR_LIST: 모든 컨투어 라인을 찾지만, 상하구조(hierachy)관계를 구성하지 않음
+
+                    # cv2.RETR_CCOMP: 모든 컨투어 라인을 찾고, 상하구조는 2 단계로 구성함
+
+                    # cv2.RETR_TREE: 모든 컨투어 라인을 찾고, 모든 상하구조를 구성함
+
+    #        · method : 컨투어를 찾을 때 사용하는 근사화 방법
+
+                    # cv2.CHAIN_APPROX_NONE: 모든 컨투어 포인트를 반환
+
+                    # cv2.CHAIN_APPROX_SIMPLE: 컨투어 라인을 그릴 수 있는 포인트만 반환
+
+                    # cv2.CHAIN_APPROX_TC89_L1: Teh_Chin 연결 근사 알고리즘 L1 버전을 적용해 컨투어 포인트
+
+    colored_img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+                    
+    for i in contours:
+        hull = cv2.convexHull(i, clockwise=True)
+        cv2.drawContours(colored_img, [hull], 0, (0, 0, 255), 2) 
+        # 컨투어 그리기 (0, 0, 255): 선 색상, 2: 선 두께
+        #print(hull)
+
+    return colored_img
+        
+def detect_circles(img, params, **kwargs):
+    contours, hierarchy = cv2.findContours(img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    
+    colored_img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+    
+    circles = []
+    
+    for contour in contours:
+        # 최소 외접원 찾기
+        (x, y), radius = cv2.minEnclosingCircle(contour)
+
+        if radius >500:
+            center = (int(x), int(y))
+            radius = int(radius)
+            
+            
+            # 원 그리기
+            ret = cv2.circle(kwargs['org_img'], center, radius, (0, 255, 0), 2)
+            
+            # 원 정보 저장
+            circles.append((center, radius))
+            
+            # 정보 출력
+            print(f"원 중심: ({x:.2f}, {y:.2f})")
+            print(f"반지름: {radius:.2f}")
+            print("---")
+
+    scaled_imshow(ret,"detected")
+    
+    return colored_img
+
+def detect_ellipses(img, params, **kwargs):
+
+    # dilation
+    kernel = np.ones((5,5),np.uint8)
+    # img = cv2.dilate(img,kernel,iterations = 3)
+
+    # erode
+    img = cv2.erode(img,kernel,iterations = 3)
+
+    scaled_imshow(img,"dilated")
+
+
+    org = kwargs['org_img'].copy()
+
+    # 컨투어 찾기
+    contours, _ = cv2.findContours(img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    
+    # 가장 큰 컨투어 선택 (타원이라 가정)
+    try:
+        largest_contour = max(contours, key=cv2.contourArea)
+    except:
+        print("No contours found")s
+        return org
+
+
+    # 컨투어 그리기
+    ctr = cv2.drawContours(org, [largest_contour], -1, (255, 0, 0), 2)
+
+    
+    # 타원 피팅
+    ellipse = cv2.fitEllipse(largest_contour)
+    
+    # 타원 중심, 축, 각도 추출
+    (xc, yc), (d1, d2), angle = ellipse
+    
+    # 장축과 단축 계산
+    major_axis = max(d1, d2) / 2
+    minor_axis = min(d1, d2) / 2
+    
+    # 회전 행렬 계산
+    rotation_matrix = cv2.getRotationMatrix2D((xc, yc), angle, 1)
+
+    # 타원 그리기
+
+    ret = cv2.ellipse(org, ellipse, (0, 255, 0), 2)
+    
+    # 이미지 회전
+    rotated = cv2.warpAffine(ret, rotation_matrix, (img.shape[1], img.shape[0]))
+    
+    # 스케일링 행렬 계산
+    scale_x = major_axis / minor_axis
+    scale_y = 1.0
+    scaling_matrix = np.float32([[scale_x, 0, 0], [0, scale_y, 0]])
+    
+    # 이미지 스케일링
+    result = cv2.warpAffine(rotated, scaling_matrix, (img.shape[1], img.shape[0]))
+    
+    # 원의 반지름 계산 (스케일링 후 장축 길이)
+    radius = int(major_axis * scale_x)
+    
+    # 원을 포함하는 정사각형 영역 크롭
+    x1 = max(int(xc - radius), 0)
+    y1 = max(int(yc - radius), 0)
+    x2 = min(int(xc + radius), result.shape[1])
+    y2 = min(int(yc + radius), result.shape[0])
+
+    # 검은색 배경 500픽셀 추가    
+
+    # result = cv2.addWeighted(result, 0.8, org, 0.2, 0)
+    cropped = result[y1:y2, x1:x2]
+
+    scaled_imshow(ctr,"ctr")
+    scaled_imshow(cropped,"detected")
+
+    return cropped
 
 class SwabDetector:
     def __init__(self,path='images/*.jpg'):
@@ -15,7 +196,6 @@ class SwabDetector:
         self.config = {}
 
         self.current_img = 0
-        self.curr_params = {}
     
         assert len(self.imgs) > 0, "No images found in the images directory"
         cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
@@ -36,14 +216,19 @@ class SwabDetector:
         self.add_trackbar('img_idx', (0, len(self.imgs)-1), 0)
 
         for k, v in self.config.items():
-            self.add_trackbar(k, (v['min'],v['max']), v['value'])
+            rng = v['range']
+            values = v['value']
+
+
+            for k2,v2 in values.items():
+                self.add_trackbar(f"{k}.{k2}", (rng['min'], rng['max']), v2)
 
     def add_trackbar(self, trackbar_name, rng, def_val):
-        cv2.createTrackbar(trackbar_name,self.window_name, rng[0], rng[1], lambda x: None)
+        cv2.createTrackbar(trackbar_name,self.window_name, rng[0], rng[1], self.save_config)
         cv2.setTrackbarPos(trackbar_name,self.window_name, def_val)
 
-    def update_value(self, trackbar_name, val):
-        self.config.update(trackbar_name, val)
+    def save_config(self, val):
+        # self.config.update(trackbar_name, val)
         # save values to config file
         with open(self.config_file, 'w') as f:
             yaml.dump(self.config, f)
@@ -51,12 +236,19 @@ class SwabDetector:
     
     def run(self):
         while True:
+            for k,v in self.config.items():
+                values = v['value']
+                for k2,v2 in values.items():
+                    self.config[k]['value'][k2] = cv2.getTrackbarPos(f"{k}.{k2}", self.window_name)
+
+                
             img_path = self.imgs[self.current_img]
             img = cv2.imread(img_path)
+            org_img = img.copy()
 
 
             for p in self.pipelines:
-                img = p(img, self.config)
+                img = p(img, self.config, org_img=org_img)
 
             cv2.imshow(self.window_name, img)
     
@@ -78,6 +270,12 @@ class SwabDetector:
 
 if __name__ == '__main__':
     sd = SwabDetector()
+    sd.pipelines.append(bgr_to_gray)
+
+    sd.pipelines.append(def_preprocess)
+    sd.pipelines.append(gaussian_blur)
+
     sd.pipelines.append(threshold)
+    sd.pipelines.append(detect_ellipses)
     sd.run()
 

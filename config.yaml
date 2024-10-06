@@ -1,4 +1,27 @@
-threshold: 
-  min: 10
-  max: 255
-  value: 100
+_adj:
+  range:
+    max: 255
+    min: 0
+  value:
+    black_point: 255
+    brightness: 108
+    brilliance: 70
+    contrast: 216
+    exposure: 107
+    highlights: 144
+    noise_reduction: 93
+    shadows: 43
+    sharpness: 25
+gaussian_blur:
+  range:
+    max: 255
+    min: 10
+  value:
+    ksize: 27
+threshold:
+  range:
+    max: 255
+    min: 0
+  value:
+    max: 255
+    min: 125
