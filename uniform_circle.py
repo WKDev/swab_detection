@@ -6,17 +6,36 @@ import yaml
 from utils.adjust_image import adjust_image
 from utils.misc import odd_maker, scaled_imshow
 
+def hist_equalization(img, params, **kwargs):
+    return cv2.equalizeHist(img)
+
 def bgr_to_gray(img, params,**kwargs):
     return cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
+def adaptive_threshold(img, params,**kwargs):
+    ksize = odd_maker(params['adaptive_threshold']['value']['block_size'])
+    c = params['adaptive_threshold']['value']['c']
+    ret = cv2.adaptiveThreshold(img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, ksize, c)
+    scaled_imshow(ret,"adaptive_threshold")
+    return ret
+
 def threshold(img, params,**kwargs):
-    return cv2.threshold(img, params['threshold']['value']['min'], params['threshold']['value']['max'], cv2.THRESH_BINARY)[1]
+    ret = cv2.threshold(img, params['threshold']['value']['min'], params['threshold']['value']['max'], cv2.THRESH_BINARY)[1]
+    scaled_imshow(ret,"thresholded")
+    return ret
 
 def thresh_otsu(img, params,**kwargs):
-    return cv2.threshold(img, 0, 255, cv2.THRESH_BINARY+cv2.THRESH_OTSU)[1]
+    ret = cv2.threshold(img, params['threshold']['value']['min'], 255, cv2.THRESH_BINARY+cv2.THRESH_OTSU)[1]
+    scaled_imshow(ret,"thresh_otsu")
+
+    return ret
 
 def gaussian_blur(img, params,**kwargs):
     ksize = odd_maker(params['gaussian_blur']['value']['ksize'])
+
+    ret = cv2.GaussianBlur(img, (ksize,ksize), 0)
+
+    scaled_imshow(ret,"gaussian_blur")
     return cv2.GaussianBlur(img, (ksize,ksize), 0)
 
 def def_preprocess(img, params, **kwargs):
@@ -114,13 +133,13 @@ def detect_circles(img, params, **kwargs):
 def detect_ellipses(img, params, **kwargs):
 
     # dilation
-    kernel = np.ones((5,5),np.uint8)
+    kernel = np.ones((3,3),np.uint8)
     # img = cv2.dilate(img,kernel,iterations = 3)
 
     # erode
-    img = cv2.erode(img,kernel,iterations = 3)
+    img = cv2.dilate(img,kernel,iterations = 3)
 
-    scaled_imshow(img,"dilated")
+    scaled_imshow(img,"dilate")
 
 
     org = kwargs['org_img'].copy()
@@ -132,7 +151,7 @@ def detect_ellipses(img, params, **kwargs):
     try:
         largest_contour = max(contours, key=cv2.contourArea)
     except:
-        print("No contours found")s
+        print("No contours found")
         return org
 
 
@@ -179,13 +198,16 @@ def detect_ellipses(img, params, **kwargs):
 
     # 검은색 배경 500픽셀 추가    
 
+
     # result = cv2.addWeighted(result, 0.8, org, 0.2, 0)
     cropped = result[y1:y2, x1:x2]
 
     scaled_imshow(ctr,"ctr")
-    scaled_imshow(cropped,"detected")
+    scaled_imshow(cropped,"cropped")
+    print(f"{cropped.shape}   {xc}   {yc}")
 
     return cropped
+
 
 class SwabDetector:
     def __init__(self,path='images/*.jpg',window_name='image', config_file='config.yaml', show_result=True):
@@ -303,8 +325,9 @@ if __name__ == '__main__':
     sd = SwabDetector(**options)
 
     sd.add_pipeline(bgr_to_gray) # 원본 이미지를 흑백으로 변환
-
+    sd.add_pipeline(hist_equalization) # 히스토그램 평활화
     sd.add_pipeline(def_preprocess) # 이미지 전처리
+    sd.add_pipeline(adaptive_threshold)
     sd.add_pipeline(gaussian_blur) # 가우시안 블러
 
     sd.add_pipeline(threshold) # 이진화

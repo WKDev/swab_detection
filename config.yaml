@@ -1,27 +1,34 @@
 _adj:
   range:
+    max: 500
+    min: 0
+  value:
+    black_point: 302
+    brightness: 115
+    brilliance: 106
+    contrast: 146
+    exposure: 104
+    highlights: 154
+    noise_reduction: 45
+    shadows: 118
+    sharpness: 67
+adaptive_threshold:
+  range:
     max: 255
     min: 0
   value:
-    black_point: 255
-    brightness: 108
-    brilliance: 70
-    contrast: 216
-    exposure: 107
-    highlights: 144
-    noise_reduction: 93
-    shadows: 43
-    sharpness: 25
+    block_size: 188
+    c: 0
 gaussian_blur:
   range:
     max: 255
     min: 10
   value:
-    ksize: 27
+    ksize: 10
 threshold:
   range:
     max: 255
     min: 0
   value:
     max: 255
-    min: 125
+    min: 85
