@@ -55,6 +55,6 @@ class Perf:
         self.start = time.time()
 
 
-def scaled_imshow(img, window_name='image', scale=0.2):
+def scaled_imshow(img, window_name='image', scale=0.4):
     cv2.imshow(window_name, cv2.resize(img, (0, 0), fx=scale, fy=scale))
     pass

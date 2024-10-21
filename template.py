@@ -1,3 +1,4 @@
+# 라이브러리 불러오기
 import glob
 import traceback
 import cv2
@@ -11,6 +12,16 @@ import PIL
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import concurrent.futures
 import uuid
+
+
+# 이미지 열기
+filename = "mb_001.jpg" # 입력 이미지 파일명을 적으세요.
+img = cv2.imread(filename, cv2.IMREAD_COLOR)
+
+
+#========알고리즘 및 시각화 소스코드 작성 (시작)=========
+ 
+# [알고리즘 구현(예시)]
 def hist_equalization(img, params, **kwargs):
     return cv2.equalizeHist(img)
 
@@ -560,201 +571,51 @@ def sj_apply_processing(img, params, **kwargs):
 
     return (cnt, detected_imgs[0]) # 마지막으로 처리된 이미지 와 수 반환
 
-class SwabDetector:
-    def __init__(self,path='images/*.jpg',window_name='image', config_file='config.yaml', show_result=True, interactive=False, control_window='controls'):
-        self.interactive = interactive
-        self.imgs=glob.glob(path)
-        self.processed_imgs = {}
-        self.window_name = window_name
-        self.config_file = config_file
-        self.config = {}
-        self.show_result = show_result
-        self.control_window = control_window
-
-        self.res_img = None
 
 
-        self.current_img = 0
-    
-        assert len(self.imgs) > 0, "No images found in the images directory"
-        if self.interactive:
-            if self.show_result:
-                cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
 
-            cv2.namedWindow(self.control_window, cv2.WINDOW_NORMAL)
-            self.load_values()
-            self.init_trackbars()
+# [시각화 구현(예시)]
 
-        self.pipelines = []
-        self.processed_imgs = []
+options= {
+    'interactive':False,
+    'path':'images/*.jpg', # 이미지 경로
+    'window_name':'result', # 윈도우 이름
+    'control_window':'controls', # 컨트롤 윈도우 이름
+    'config_file':'config.yaml', # 설정값 파일
+    'show_result':False # 결과 보여줄지 여부
+}
+sd = SwabDetector(**options)
 
+sd.add_pipeline(bgr_to_gray) # 원본 이미지를 흑백으로 변환
+sd.add_pipeline(hist_equalization) # 히스토그램 평활화
+sd.add_pipeline(def_preprocess) # 이미지 전처리
+sd.add_pipeline(adaptive_threshold)
+sd.add_pipeline(gaussian_blur) # 가우시안 블러
+sd.add_pipeline(threshold) # 이진화
+sd.add_pipeline(detect_ellipses) # 타원 검출 및 warping
+sd.add_pipeline(sj_apply_clahe) # CLAHE 적용
+sd.add_pipeline(sj_adjust_image) # 이미지 조정
+sd.add_pipeline(sj_apply_processing) # 이미지 처리
+# sd.run()
+sd.run_once()
+cnt, img = sd.res_img
 
-    def add_pipeline(self, pipeline):
-        '''
-        이미지 처리를 수행할 파이프라인 함수 추가합니다.
-        반드시 foo_bar(img, params, **kwargs) 형태여야 하고, img를 반환해야 합니다.
-        params는 설정값을 전달하며, kwargs는 이미지 처리에 필요한 추가적인 정보를 전달합니다.
-        '''
-        self.pipelines.append(pipeline)
-
-    def load_values(self):
-        '''
-        Load values from config file
-        '''
-        with open(self.config_file, 'r') as f:
-            self.config = yaml.safe_load(f) 
-
-        if self.config is None:
-            self.config = {}
-
-    def init_trackbars(self):
-        '''
-        Initialize trackbars
-        '''
-        self.add_trackbar('img_idx', (0, len(self.imgs)-1), 0)
-
-        for k, v in self.config.items():
-            if v['show']:
-                rng = v['range']
-                values = v['value']
-
-
-                for k2,v2 in values.items():
-                    self.add_trackbar(f"{k}.{k2}", (rng['min'], rng['max']), v2)
-
-    def add_trackbar(self, trackbar_name, rng, def_val):
-        cv2.createTrackbar(trackbar_name,self.control_window, rng[0], rng[1], self.save_config)
-        cv2.setTrackbarPos(trackbar_name,self.control_window, def_val)
-
-    def save_config(self, val):
-        # self.config.update(trackbar_name, val)
-        # save values to config file
-        with open(self.config_file, 'w') as f:
-            yaml.dump(self.config, f)
-
-    def run(self):
-        '''
-        Run the pipeline
-        '''
-        while True:
-
-            # Load values from trackbars
-            for k,v in self.config.items():
-                if v['show']:
-                    values = v['value']
-                    for k2,v2 in values.items():
-                        self.config[k]['value'][k2] = cv2.getTrackbarPos(f"{k}.{k2}", self.control_window)
-
-            # Load image
-            img_path = self.imgs[self.current_img]
-            img = cv2.imread(img_path)
-            org_img = img.copy()
-            self.res_img = img.copy()
-
-            # Run the pipeline
-            # 여기가 중요한 부분, __main__에서 pipeline을 추가하면 여기서 실행됨
-            print(f"Processing {img_path}")
-            for p in self.pipelines:
-                img = p(img, self.config, org_img=org_img)
-                self.processed_imgs.append(img)
-                self.res_img = img
-
-
-            if not self.interactive:
-                break
-
-            
-            if self.show_result:
-                cv2.imshow(self.window_name, img)
-    
-
-            # Handle keyboard input
-   
-            current_input = cv2.waitKey(10) & 0xFF
-            if current_input == ord('q'):
-                break
-
-            elif current_input == ord(']'):
-                self.current_img +=1
-
-            elif current_input == ord('['):
-                self.current_img -=1
-
-            if self.current_img < 0:
-                self.current_img = len(self.imgs) - 1
-            elif self.current_img >= len(self.imgs):
-                self.current_img = 0
-
-            
-
-
-        cv2.destroyAllWindows()
-
-
-    def run_once(self):
-        '''
-        Run the pipeline once
-        '''
-        # load config 
-
-        self.load_values()
-
-        img_path = self.imgs[self.current_img]
-        img = cv2.imread(img_path)
-        org_img = img.copy()
-        self.res_img = img.copy()
-
-        # Run the pipeline
-        print(f"Processing {img_path}")
-        for p in self.pipelines:
-            img = p(img, self.config, org_img=org_img)
-            self.processed_imgs.append(img)
-            self.res_img = img
-
-        return self.res_img
-if __name__ == '__main__':
-    
-    # 이미지 로드 및 설정값 불러오기
-    options= {
-        'interactive':False,
-        'path':'images/*.jpg', # 이미지 경로
-        'window_name':'result', # 윈도우 이름
-        'control_window':'controls', # 컨트롤 윈도우 이름
-        'config_file':'config.yaml', # 설정값 파일
-        'show_result':False # 결과 보여줄지 여부
-    }
-    sd = SwabDetector(**options)
-
-    sd.add_pipeline(bgr_to_gray) # 원본 이미지를 흑백으로 변환
-    sd.add_pipeline(hist_equalization) # 히스토그램 평활화
-    sd.add_pipeline(def_preprocess) # 이미지 전처리
-    sd.add_pipeline(adaptive_threshold)
-    sd.add_pipeline(gaussian_blur) # 가우시안 블러
-    sd.add_pipeline(threshold) # 이진화
-    sd.add_pipeline(detect_ellipses) # 타원 검출 및 warping
-    sd.add_pipeline(sj_apply_clahe) # CLAHE 적용
-    sd.add_pipeline(sj_adjust_image) # 이미지 조정
-    sd.add_pipeline(sj_apply_processing) # 이미지 처리
-    # sd.run()
-    sd.run_once()
-    mb_count, img = sd.res_img
-
-    # 시각화 결과
-    img_vis = cv2.putText(img, str(mb_count), (100, 200), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 0), 5, cv2.LINE_AA)
-    img_vis = cv2.rectangle(img, (640, 260), (720, 340), (0, 255, 0), 3) # 면봉 검출을 사각형으로 시각화 하는 경우
-    img_vis = cv2.circle(img, (800, 300), 40, (0, 266, 0), 3) # 면봉 검출을 원으로 시각화 하는 경우
-
-    #========알고리즘 및 시각화 소스코드 작성 (끝)=========
+cv2.imwrite("result.jpg", img)
 
 
 
 
-    # 시각화 결과 표시(예측 결과 확인용, 이 부분은 수정하지 마시오)
-    cv2.imshow('visualization', img_vis) # 시각화
-    cv2.waitKey(0) 
-    cv2.destroyAllWindows()
+# 시각화 결과
+img_vis = cv2.putText(img, str(mb_count), (100, 200), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 0), 5, cv2.LINE_AA)
+img_vis = cv2.rectangle(img, (640, 260), (720, 340), (0, 255, 0), 3) # 면봉 검출을 사각형으로 시각화 하는 경우
+img_vis = cv2.circle(img, (800, 300), 40, (0, 266, 0), 3) # 면봉 검출을 원으로 시각화 하는 경우
+
+#========알고리즘 및 시각화 소스코드 작성 (끝)=========
 
 
 
 
-
+# 시각화 결과 표시(예측 결과 확인용, 이 부분은 수정하지 마시오)
+cv2.imshow('visualization', img_vis) # 시각화
+cv2.waitKey(0) 
+cv2.destroyAllWindows()

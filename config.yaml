@@ -17,17 +17,17 @@ _adj2:
   range:
     max: 500
     min: 0
-  show: false
+  show: true
   value:
-    black_point: 144
-    brightness: 95
-    brilliance: 96
-    contrast: 44
-    exposure: 67
-    highlights: 103
-    noise_reduction: 109
-    shadows: 95
-    sharpness: 101
+    black_point: 128
+    brightness: 113
+    brilliance: 101
+    contrast: 81
+    exposure: 117
+    highlights: 113
+    noise_reduction: 129
+    shadows: 72
+    sharpness: 181
 adaptive_threshold:
   range:
     max: 255
@@ -58,20 +58,22 @@ imdiff:
   range:
     max: 255
     min: 0
-  show: false
+  show: true
   value:
     blur: 51
+    iter: 0
+    ksize: 2
     max: 255
-    min: 168
+    min: 45
 sj:
   range:
     max: 255
     min: 0
   show: true
   value:
-    black_point: 50
+    black_point: 66
     brightness: 50
-    contrast: 50
+    contrast: 53
     definition: 50
     exposure: 48
     highlights: 50
@@ -80,17 +82,17 @@ sj:
     min_radius: 33
     param1: 26
     param2: 1
-    shadows: 26
+    shadows: 51
     sharpness: 0
     threshold_value: 117
 thresh_2:
   range:
     max: 255
     min: 0
-  show: false
+  show: true
   value:
-    max: 210
-    min: 27
+    max: 255
+    min: 107
 threshold:
   range:
     max: 255
