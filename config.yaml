@@ -2,6 +2,7 @@ _adj:
   range:
     max: 500
     min: 0
+  show: false
   value:
     black_point: 302
     brightness: 115
@@ -12,10 +13,26 @@ _adj:
     noise_reduction: 45
     shadows: 118
     sharpness: 67
+_adj2:
+  range:
+    max: 500
+    min: 0
+  show: false
+  value:
+    black_point: 144
+    brightness: 95
+    brilliance: 96
+    contrast: 44
+    exposure: 67
+    highlights: 103
+    noise_reduction: 109
+    shadows: 95
+    sharpness: 101
 adaptive_threshold:
   range:
     max: 255
     min: 0
+  show: false
   value:
     block_size: 188
     c: 0
@@ -23,12 +40,62 @@ gaussian_blur:
   range:
     max: 255
     min: 10
+  show: false
   value:
     ksize: 10
+hough_circle:
+  range:
+    max: 255
+    min: 0
+  show: false
+  value:
+    max_radius: 34
+    min_dist: 46
+    min_radius: 27
+    param1: 60
+    param2: 11
+imdiff:
+  range:
+    max: 255
+    min: 0
+  show: false
+  value:
+    blur: 51
+    max: 255
+    min: 168
+sj:
+  range:
+    max: 255
+    min: 0
+  show: true
+  value:
+    black_point: 50
+    brightness: 50
+    contrast: 50
+    definition: 50
+    exposure: 48
+    highlights: 50
+    max_radius: 37
+    min_dist: 56
+    min_radius: 33
+    param1: 26
+    param2: 1
+    shadows: 26
+    sharpness: 0
+    threshold_value: 117
+thresh_2:
+  range:
+    max: 255
+    min: 0
+  show: false
+  value:
+    max: 210
+    min: 27
 threshold:
   range:
     max: 255
     min: 0
+  show: false
   value:
-    max: 255
+    max: 25
     min: 85
